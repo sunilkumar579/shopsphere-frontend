@@ -1,0 +1,2 @@
+import {Navigate,useLocation} from 'react-router-dom'; import {useApp} from '../context/AppContext'; import Spinner from './Spinner';
+export default function ProtectedRoute({children,admin=false}:{children:React.ReactNode;admin?:boolean}){const {user,loading}=useApp();const loc=useLocation();if(loading)return <Spinner/>;if(!user)return <Navigate to={`/login?next=${encodeURIComponent(loc.pathname+loc.search)}`} replace/>;if(admin&&user.role!=='ADMIN')return <Navigate to="/" replace/>;return <>{children}</>}
