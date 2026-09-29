@@ -2,7 +2,8 @@ import {
   Heart,
   ShoppingBag,
   Star,
-  Check,
+  Minus,
+  Plus,
   Package,
 } from "lucide-react";
 
@@ -29,8 +30,12 @@ export default function ProductCard({
 }) {
   const {
     user,
+    cart,
     wishlist,
     addToCart,
+    updateCart,
+    removeCart,
+    refreshCart,
     toggleWishlist,
   } = useApp();
 
@@ -39,6 +44,11 @@ export default function ProductCard({
   const [adding, setAdding] = useState(false);
   const [packing, setPacking] = useState(false);
   const [added, setAdded] = useState(false);
+  const [updatingQuantity, setUpdatingQuantity] = useState(false);
+
+  const cartItem = cart?.items.find(
+    (item) => item.productId === product.id
+  );
 
   const liked = wishlist.some(
     (item) => item.id === product.id
@@ -361,21 +371,7 @@ export default function ProductCard({
 
           return flight.finished.then(
             () => {
-              createBagSuccessEffect(
-                targetBag
-              );
-
               parcel.remove();
-
-              /*
-               * Tell Header to open the Bag Drawer
-               * after the parcel reaches the Bag.
-               */
-              window.dispatchEvent(
-                new CustomEvent(
-                  "open-bag-drawer"
-                )
-              );
 
               resolve();
             }
@@ -404,8 +400,7 @@ export default function ProductCard({
     success.className =
       "bag-success-check";
 
-    success.innerHTML =
-      "✓";
+    success.textContent = String.fromCharCode(0x2713);
 
     const bagRect =
       bag.getBoundingClientRect();
@@ -456,8 +451,7 @@ export default function ProductCard({
     if (
       product.stock === 0 ||
       adding ||
-      packing ||
-      added
+      packing
     ) {
       return;
     }
@@ -466,7 +460,7 @@ export default function ProductCard({
 
     try {
       // 1. Actually add the product to cart
-      await addToCart(product.id);
+      await addToCart(product.id, 1, false);
 
       // 2. Now animate using the saved button
       setPacking(true);
@@ -474,8 +468,11 @@ export default function ProductCard({
       await packThenFlyToBag(
         clickedButton
       );
-
       setPacking(false);
+
+      await refreshCart();
+      const receivingBag = getVisibleBag();
+      if (receivingBag) createBagSuccessEffect(receivingBag);
 
       // 3. Change button state
       setAdded(true);
@@ -546,6 +543,28 @@ export default function ProductCard({
     }
   };
 
+  const handleQuantityChange = async (
+    event: React.MouseEvent<HTMLButtonElement>,
+    quantity: number
+  ) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!cartItem || updatingQuantity) return;
+
+    setUpdatingQuantity(true);
+    try {
+      if (quantity <= 0) {
+        await removeCart(product.id);
+      } else {
+        await updateCart(product.id, quantity);
+      }
+    } catch (error) {
+      console.error("Unable to update bag quantity", error);
+    } finally {
+      setUpdatingQuantity(false);
+    }
+  };
+
   return (
     <article
       className={`product-card ${
@@ -554,6 +573,7 @@ export default function ProductCard({
           : ""
       }`}
     >
+      <div className="product-image-stage">
       <Link
         to={`/product/${product.id}`}
         className="product-image-wrap"
@@ -573,6 +593,41 @@ export default function ProductCard({
           </div>
         )}
       </Link>
+      <div className="product-bag-action">
+        {cartItem ? (
+          <div className="product-card-quantity" aria-label={`Quantity in bag: ${cartItem.quantity}`}>
+            <button
+              type="button"
+              aria-label={`Decrease ${product.name} quantity`}
+              disabled={updatingQuantity}
+              onClick={(event) => handleQuantityChange(event, cartItem.quantity - 1)}
+            >
+              <Minus size={17} />
+            </button>
+            <span aria-live="polite">{cartItem.quantity}</span>
+            <button
+              type="button"
+              aria-label={`Increase ${product.name} quantity`}
+              disabled={updatingQuantity || cartItem.quantity >= product.stock}
+              onClick={(event) => handleQuantityChange(event, cartItem.quantity + 1)}
+            >
+              <Plus size={17} />
+            </button>
+          </div>
+        ) : (
+          <button
+            className="product-card-add"
+            disabled={product.stock === 0 || adding || packing}
+            onClick={handleAddToBag}
+            type="button"
+            aria-label={`Add ${product.name} to bag`}
+          >
+            {packing ? <Package size={15} /> : adding ? <span className="button-spinner" /> : <ShoppingBag size={15} />}
+            {product.stock === 0 ? "SOLD OUT" : packing ? "Packing" : adding ? "Adding" : "ADD"}
+          </button>
+        )}
+      </div>
+      </div>
 
       <button
         className={`wish-fab ${
@@ -657,52 +712,6 @@ export default function ProductCard({
             </div>
           )}
 
-        <button
-          className={`add-btn ${
-            added
-              ? "added-btn"
-              : ""
-          } ${
-            adding
-              ? "adding-btn"
-              : ""
-          }`}
-          disabled={
-            product.stock === 0 ||
-            adding ||
-            packing ||
-            added
-          }
-          onClick={handleAddToBag}
-          type="button"
-        >
-          {added ? (
-            <>
-              <Check size={17} />
-              Added to bag
-            </>
-          ) : packing ? (
-            <>
-              <Package size={17} />
-              Packing...
-            </>
-          ) : adding ? (
-            <>
-              <span className="button-spinner" />
-              Adding...
-            </>
-          ) : product.stock === 0 ? (
-            <>
-              <ShoppingBag size={17} />
-              Out of stock
-            </>
-          ) : (
-            <>
-              <ShoppingBag size={17} />
-              Add to bag
-            </>
-          )}
-        </button>
       </div>
     </article>
   );

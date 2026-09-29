@@ -55,19 +55,20 @@ export default function ProductDetail() {
   ] = useState<Product[]>([]);
 
   const [
-    qty,
-    setQty,
-  ] = useState(1);
-
-  const [
     loading,
     setLoading,
   ] = useState(true);
 
+  const [adding, setAdding] = useState(false);
+  const [updatingQuantity, setUpdatingQuantity] = useState(false);
+
   const {
     user,
+    cart,
     wishlist,
     addToCart,
+    updateCart,
+    removeCart,
     toggleWishlist,
   } = useApp();
 
@@ -208,6 +209,10 @@ export default function ProductDetail() {
         item.id === product.id
     );
 
+  const cartItem = cart?.items.find(
+    (item) => item.productId === product.id
+  );
+
 
   /*
    * =========================================================
@@ -216,6 +221,8 @@ export default function ProductDetail() {
    */
 
   const add = async () => {
+
+    if (adding || cartItem || !product || product.stock < 1) return;
 
     if (!user) {
 
@@ -229,14 +236,13 @@ export default function ProductDetail() {
       return;
     }
 
+    setAdding(true);
     try {
 
       await addToCart(
         product.id,
-        qty
+        1
       );
-
-      nav("/cart");
 
     } catch (error) {
 
@@ -244,8 +250,26 @@ export default function ProductDetail() {
         messageOf(error)
       );
 
+    } finally {
+      setAdding(false);
     }
 
+  };
+
+  const changeCartQuantity = async (nextQuantity: number) => {
+    if (!cartItem || updatingQuantity) return;
+    setUpdatingQuantity(true);
+    try {
+      if (nextQuantity <= 0) {
+        await removeCart(product.id);
+      } else {
+        await updateCart(product.id, nextQuantity);
+      }
+    } catch (error) {
+      alert(messageOf(error));
+    } finally {
+      setUpdatingQuantity(false);
+    }
   };
 
 
@@ -436,69 +460,45 @@ export default function ProductDetail() {
           )}
 
 
-          <div className="qty-row">
-
-            <strong>
-              Quantity
-            </strong>
-
-
-            <div className="qty-control">
-
-              <button
-                onClick={() =>
-                  setQty(
-                    Math.max(
-                      1,
-                      qty - 1
-                    )
-                  )
-                }
-                type="button"
-              >
-                <Minus size={16} />
-              </button>
-
-
-              <span>
-                {qty}
-              </span>
-
-
-              <button
-                onClick={() =>
-                  setQty(
-                    Math.min(
-                      product.stock,
-                      qty + 1
-                    )
-                  )
-                }
-                type="button"
-              >
-                <Plus size={16} />
-              </button>
-
-            </div>
-
-
-            <small>
-              {product.stock} left
-            </small>
-
-          </div>
+          <small className="detail-stock">
+            {product.stock} available
+          </small>
 
 
           <div className="detail-actions">
 
-            <button
-              className="primary-btn grow"
-              onClick={add}
-              type="button"
-            >
-              <ShoppingBag />
-              Add to bag
-            </button>
+            {cartItem ? (
+              <div className="detail-cart-quantity" aria-label="Quantity in bag">
+                <button
+                  type="button"
+                  aria-label="Decrease quantity"
+                  disabled={updatingQuantity}
+                  onClick={() => changeCartQuantity(cartItem.quantity - 1)}
+                >
+                  <Minus size={16} />
+                </button>
+                <span aria-live="polite">{cartItem.quantity}</span>
+                <button
+                  type="button"
+                  aria-label="Increase quantity"
+                  disabled={updatingQuantity || cartItem.quantity >= product.stock}
+                  onClick={() => changeCartQuantity(cartItem.quantity + 1)}
+                >
+                  <Plus size={16} />
+                </button>
+                <small>In your bag</small>
+              </div>
+            ) : (
+              <button
+                className="primary-btn grow"
+                onClick={add}
+                disabled={adding || product.stock < 1}
+                type="button"
+              >
+                <ShoppingBag />
+                {adding ? "Adding…" : "Add to bag"}
+              </button>
+            )}
 
 
             <button
@@ -526,7 +526,6 @@ export default function ProductDetail() {
             </button>
 
           </div>
-
 
           <div className="benefit-box">
 
