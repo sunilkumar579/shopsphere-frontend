@@ -1,6 +1,6 @@
 import {createContext,useCallback,useContext,useEffect,useMemo,useState} from 'react';
 import {api,messageOf} from '../lib/api'; import type {Cart,Product,User} from '../types';
-
+//siddu
 type RegistrationChallenge={email:string;phone:string;message:string;debugEmailOtp?:string;debugSmsOtp?:string};
 type Ctx={user:User|null;loading:boolean;cart:Cart|null;wishlist:Product[];login:(email:string,password:string)=>Promise<void>;register:(d:any)=>Promise<RegistrationChallenge>;verifyRegistration:(email:string,emailOtp:string,smsOtp:string)=>Promise<void>;resendRegistrationOtp:(email:string)=>Promise<RegistrationChallenge>;logout:()=>void;refreshCart:()=>Promise<void>;addToCart:(productId:number,quantity?:number,updateUI?:boolean)=>Promise<void>;updateCart:(productId:number,quantity:number)=>Promise<void>;removeCart:(productId:number)=>Promise<void>;toggleWishlist:(productId:number)=>Promise<void>;refreshWishlist:()=>Promise<void>;error:string;setError:(x:string)=>void};
 const AppCtx=createContext<Ctx|null>(null);
